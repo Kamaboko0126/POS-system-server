@@ -112,15 +112,23 @@ def addmenuclass(data: MenuClass):
 def delmenuclass(data: MenuClass):
     conn = None
     try:
-        conn = sqlite3.connect('menu-class.db')  # 建立資料庫連接
+        conn = sqlite3.connect('menu_class.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
 
-        # 檢查 'menu-class' 表中是否已經存在該 MenuClass
-        cursor.execute("SELECT MenuClass FROM 'menu-class' WHERE MenuClass = ?", (data.MenuClass,))
+        # 檢查 'menu_class' 表中是否已經存在該 MenuClass
+        cursor.execute("SELECT MenuClass FROM 'menu_class' WHERE MenuClass = ?", (data.MenuClass,))
         if cursor.fetchone() is not None:
             # 如果存在，則刪除該 MenuClass
-            cursor.execute("DELETE FROM 'menu-class' WHERE MenuClass = ?", (data.MenuClass,))
+            cursor.execute("DELETE FROM 'menu_class' WHERE MenuClass = ?", (data.MenuClass,))
             conn.commit()  # 提交事務
+
+            # 在 'menus.db' 中刪除一個表
+            new_db_conn = sqlite3.connect('menus.db')
+            new_db_cursor = new_db_conn.cursor()
+            new_db_cursor.execute(f"DROP TABLE IF EXISTS {data.MenuClass}")
+            new_db_conn.commit()
+            new_db_conn.close()
+
             return JSONResponse({"message": "success"})
         else:
             return JSONResponse({"message": "not exist"})
