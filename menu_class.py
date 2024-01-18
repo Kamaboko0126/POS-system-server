@@ -13,8 +13,8 @@ def create_menu_class_db():
             # 如果 'menu_class' 表不存在，則創建它
             cursor.execute('''
                 CREATE TABLE menu_class (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    MenuClass TEXT NOT NULL
+                    id TEXT NOT NULL,
+                    menu_class TEXT NOT NULL
                 )
             ''')
 
