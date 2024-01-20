@@ -48,7 +48,11 @@ class AddItem(BaseModel):
     name: str
     price: int
 
+class DelItem(BaseModel):
+    table_id: str
+    id: str
 
+# 登入
 @app.post("/login")
 def login(data: LoginData):
     conn = None
@@ -72,7 +76,7 @@ def login(data: LoginData):
 
     return JSONResponse({"message": "success"})
 
-
+# 取得菜單類別
 @app.get("/getmenuclass")
 def getmenuclass():
     conn = None
@@ -95,7 +99,7 @@ def getmenuclass():
         if conn:
             conn.close()  # 關閉資料庫連接
 
-
+# 新增菜單類別
 @app.post("/addmenuclass")
 def addmenuclass(data: MenuClass):
     conn = None
@@ -135,7 +139,7 @@ def addmenuclass(data: MenuClass):
         if conn:
             conn.close()  # 關閉資料庫連接
 
-
+# 刪除菜單類別
 @app.post("/delmenuclass")
 def delmenuclass(data: DelClass):
     conn = None
@@ -168,7 +172,7 @@ def delmenuclass(data: DelClass):
         if conn:
             conn.close()  # 關閉資料庫連接
 
-
+# 取得菜單項目
 @app.get("/getitems/{id}")
 def get_items(id: str):
     conn = None
@@ -189,7 +193,7 @@ def get_items(id: str):
         if conn:
             conn.close()  # 關閉資料庫連接
 
-
+# 新增菜單項目
 @app.post("/additem")
 def add_item(data: AddItem):
     conn = None
@@ -209,6 +213,28 @@ def add_item(data: AddItem):
     finally:
         if conn:
             conn.close()  # 關閉資料庫連接
+
+
+# 刪除菜單項目
+@app.post("/delitem")
+def del_item(data: DelItem):
+    conn = None
+    try:
+        conn = sqlite3.connect('menus.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+
+        # 將新的項目插入到指定的表中
+        cursor.execute(
+            f"DELETE FROM '{data.table_id}' WHERE id = ?", (data.id,))
+        conn.commit()  # 提交事務
+
+        return JSONResponse({"message": "success"})
+    except sqlite3.Error as e:
+        print(e)
+        return JSONResponse({"message": "failed"})
+    finally:
+        if conn:
+            conn.close()
 
 
 if __name__ == "__main__":
