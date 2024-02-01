@@ -13,6 +13,7 @@ def create_menu_class_db():
             # 如果 'menu_class' 表不存在，則創建它
             cursor.execute('''
                 CREATE TABLE menu_class (
+                    order_id INT NOT NULL,
                     id TEXT NOT NULL,
                     menu_class TEXT NOT NULL
                 )
