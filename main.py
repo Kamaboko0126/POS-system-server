@@ -58,6 +58,7 @@ class AddItem(BaseModel):
     id: str
     name: str
     price: int
+    marker: str
 
 
 class DelItem(BaseModel):
@@ -65,9 +66,9 @@ class DelItem(BaseModel):
     id: str
 
 
-class Remark(BaseModel):
-    id: str
-    name: str
+# class Remark(BaseModel):
+#     id: str
+#     name: str
 
 
 # 登入
@@ -145,7 +146,8 @@ def addmenuclass(data: MenuClass):
                 CREATE TABLE {data.id} (
                     id TEXT NOT NULL,
                     name TEXT NOT NULL,
-                    price REAL NOT NULL
+                    price REAL NOT NULL,
+                    marker TEXT
                 )
             ''')
             new_db_conn.commit()
@@ -248,11 +250,11 @@ def get_items(id: str):
         cursor = conn.cursor()  # 建立游標對象
 
         # 查詢對應的表中的所有項目
-        cursor.execute(f"SELECT id, name, price FROM '{id}'")
+        cursor.execute(f"SELECT id, name, price, marker FROM '{id}'")
         items = cursor.fetchall()
 
         # 將結果轉換為 JSON 格式
-        return [Item(id=item[0], name=item[1], price=item[2]) for item in items]
+        return [Item(id=item[0], name=item[1], price=item[2], marker=item[3]) for item in items]
     except sqlite3.Error as e:
         print(e)
         raise HTTPException(status_code=400, detail="Error in fetching items")
@@ -271,7 +273,7 @@ def add_item(data: AddItem):
 
         # 將新的項目插入到指定的表中
         cursor.execute(
-            f"INSERT INTO '{data.table_id}' (id, name, price) VALUES (?, ?, ?)", (data.id, data.name, data.price))
+            f"INSERT INTO '{data.table_id}' (id, name, price, marker) VALUES (?, ?, ?, ?)", (data.id, data.name, data.price, data.marker))
         conn.commit()  # 提交事務
 
         return JSONResponse({"message": "success"})
@@ -305,54 +307,55 @@ def del_item(data: DelItem):
             conn.close()
 
 
-# 取得所有的備註
-@app.get("/getremarks")
-def get_remarks():
-    conn = None
-    try:
-        conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
-        cursor = conn.cursor()  # 建立游標對象
 
-        # 從 SQLite 數據庫中讀取所有的 remarks
-        cursor.execute('SELECT * FROM remarks')
-        rows = cursor.fetchall()
+# # 取得所有的備註
+# @app.get("/getremarks")
+# def get_remarks():
+#     conn = None
+#     try:
+#         conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
+#         cursor = conn.cursor()  # 建立游標對象
 
-        # 將結果轉換為 JSON 格式
-        remarks = [{"id": row[0], "name": row[1]} for row in rows]
-        return JSONResponse({"remarks": remarks})
+#         # 從 SQLite 數據庫中讀取所有的 remarks
+#         cursor.execute('SELECT * FROM remarks')
+#         rows = cursor.fetchall()
 
-    except sqlite3.Error as e:
-        print(e)
-    finally:
-        if conn:
-            conn.close()  # 關閉資料庫連接
+#         # 將結果轉換為 JSON 格式
+#         remarks = [{"id": row[0], "name": row[1]} for row in rows]
+#         return JSONResponse({"remarks": remarks})
+
+#     except sqlite3.Error as e:
+#         print(e)
+#     finally:
+#         if conn:
+#             conn.close()  # 關閉資料庫連接
 
 
-# 新增備註
-@app.post("/addremark")
-def addremark(data: Remark):
-    conn = None
-    try:
-        conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
-        cursor = conn.cursor()  # 建立游標對象
+# # 新增備註
+# @app.post("/addremark")
+# def addremark(data: Remark):
+#     conn = None
+#     try:
+#         conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
+#         cursor = conn.cursor()  # 建立游標對象
 
-        # 檢查 'remarks' 表中是否已經存在該 remark
-        cursor.execute(
-            "SELECT id FROM 'remarks' WHERE id = ?", (data.id,))
-        if cursor.fetchone() is None:
-            # 如果不存在，則插入新的 MenuClass
-            cursor.execute(
-                "INSERT INTO 'remarks' (id, data) VALUES (?, ?)", (data.id, data.data))
-            conn.commit()  # 提交事務
+#         # 檢查 'remarks' 表中是否已經存在該 remark
+#         cursor.execute(
+#             "SELECT id FROM 'remarks' WHERE id = ?", (data.id,))
+#         if cursor.fetchone() is None:
+#             # 如果不存在，則插入新的 MenuClass
+#             cursor.execute(
+#                 "INSERT INTO 'remarks' (id, data) VALUES (?, ?)", (data.id, data.data))
+#             conn.commit()  # 提交事務
 
-            return JSONResponse({"message": "success"})
-        else:
-            return JSONResponse({"message": "already exists"})
-    except sqlite3.Error as e:
-        print(e)
-    finally:
-        if conn:
-            conn.close()  # 關閉資料庫連接
+#             return JSONResponse({"message": "success"})
+#         else:
+#             return JSONResponse({"message": "already exists"})
+#     except sqlite3.Error as e:
+#         print(e)
+#     finally:
+#         if conn:
+#             conn.close()  # 關閉資料庫連接
 
 
 if __name__ == "__main__":
