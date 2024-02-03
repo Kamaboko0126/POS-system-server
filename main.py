@@ -5,13 +5,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from admin import create_admin_db
 from menu_class import create_menu_class_db
-from remarks import create_remarks_db
 import sqlite3
 import json
 
 create_admin_db()
 create_menu_class_db()
-create_remarks_db()
 
 app = FastAPI()
 app.add_middleware(
@@ -51,6 +49,8 @@ class Item(BaseModel):
     id: str
     name: str
     price: int
+    marker: str
+    order_id: int
 
 
 class AddItem(BaseModel):
@@ -59,6 +59,13 @@ class AddItem(BaseModel):
     name: str
     price: int
     marker: str
+    order_id: int
+
+class EditItem(BaseModel):
+    table_id: str
+    id: str
+    name: str
+    price: int
 
 
 class DelItem(BaseModel):
@@ -66,10 +73,14 @@ class DelItem(BaseModel):
     id: str
 
 
-# class Remark(BaseModel):
-#     id: str
-#     name: str
+class AddMarker(BaseModel):
+    table_id: str
+    item_id: str
+    marker: str
 
+class ChangeItemOrder(BaseModel):
+    table_id: str
+    data: str
 
 # 登入
 @app.post("/login")
@@ -147,7 +158,8 @@ def addmenuclass(data: MenuClass):
                     id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     price REAL NOT NULL,
-                    marker TEXT
+                    marker TEXT NOT NULL,
+                    order_id INTEGER NOT NULL
                 )
             ''')
             new_db_conn.commit()
@@ -241,7 +253,7 @@ def changeclassorder(data: ChangeClassOrder):
     return JSONResponse({"message": "success"})
 
 
-# 取得菜單項目
+# 取得菜單品項
 @app.get("/getitems/{id}")
 def get_items(id: str):
     conn = None
@@ -249,12 +261,14 @@ def get_items(id: str):
         conn = sqlite3.connect('menus.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
 
-        # 查詢對應的表中的所有項目
-        cursor.execute(f"SELECT id, name, price, marker FROM '{id}'")
+        # 查詢對應的表中的所有項目，並按照 order_id 進行排序
+        cursor.execute(f"SELECT id, name, price, marker, order_id FROM '{id}' ORDER BY order_id")
         items = cursor.fetchall()
 
+        print([Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items])
+
         # 將結果轉換為 JSON 格式
-        return [Item(id=item[0], name=item[1], price=item[2], marker=item[3]) for item in items]
+        return [Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items]
     except sqlite3.Error as e:
         print(e)
         raise HTTPException(status_code=400, detail="Error in fetching items")
@@ -263,9 +277,10 @@ def get_items(id: str):
             conn.close()  # 關閉資料庫連接
 
 
-# 新增菜單項目
+# 新增菜單品項
 @app.post("/additem")
 def add_item(data: AddItem):
+    print(data.dict())
     conn = None
     try:
         conn = sqlite3.connect('menus.db')  # 建立資料庫連接
@@ -273,7 +288,7 @@ def add_item(data: AddItem):
 
         # 將新的項目插入到指定的表中
         cursor.execute(
-            f"INSERT INTO '{data.table_id}' (id, name, price, marker) VALUES (?, ?, ?, ?)", (data.id, data.name, data.price, data.marker))
+            f"INSERT INTO '{data.table_id}' (id, name, price, marker, order_id) VALUES (?, ?, ?, ? ,?)", (data.id, data.name, data.price, data.marker, data.order_id))
         conn.commit()  # 提交事務
 
         return JSONResponse({"message": "success"})
@@ -285,7 +300,7 @@ def add_item(data: AddItem):
             conn.close()  # 關閉資料庫連接
 
 
-# 刪除菜單項目
+# 刪除菜單品項
 @app.post("/delitem")
 def del_item(data: DelItem):
     conn = None
@@ -306,56 +321,74 @@ def del_item(data: DelItem):
         if conn:
             conn.close()
 
+#編輯菜單品項
+@app.post("/edititem")
+def edit_item(data: EditItem):
+    conn = None
+    try:
+        conn = sqlite3.connect('menus.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+        cursor.execute(f"""
+            UPDATE {data.table_id}
+            SET name = ?, price = ?
+            WHERE id = ?
+        """, (data.name, data.price, data.id))
+
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            return JSONResponse({"message": "success"})
+        else:
+            return JSONResponse({"message": "not exist"})
+    except sqlite3.Error as e:
+        print(e)
+    finally:
+        if conn:
+            conn.close()  # 關閉資料庫連接
+
+# 修改品項順序
+@app.post("/changeitemorder")
+def changeitemorder(data: ChangeItemOrder):
+    data_list = json.loads(str(data.data))
+    conn = sqlite3.connect('menus.db')
+    cursor = conn.cursor()
+
+    for item in data_list:
+        cursor.execute(
+            f'''UPDATE {data.table_id} SET order_id = ? WHERE id = ?''', (item['order_id'], item['id']))
+        print(f"order_id: {item['order_id']}, ID: {item['id']}")
 
 
-# # 取得所有的備註
-# @app.get("/getremarks")
-# def get_remarks():
-#     conn = None
-#     try:
-#         conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
-#         cursor = conn.cursor()  # 建立游標對象
+    conn.commit()
+    conn.close()
 
-#         # 從 SQLite 數據庫中讀取所有的 remarks
-#         cursor.execute('SELECT * FROM remarks')
-#         rows = cursor.fetchall()
+    return JSONResponse({"message": "success"})
 
-#         # 將結果轉換為 JSON 格式
-#         remarks = [{"id": row[0], "name": row[1]} for row in rows]
-#         return JSONResponse({"remarks": remarks})
+# 新增備註
+@app.post("/addmarker")
+def addmarker(data: AddMarker):
+    conn=None
+    try:
+        conn = sqlite3.connect('menus.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+        cursor.execute(f"""
+            UPDATE {data.table_id}
+            SET marker = ?
+            WHERE id = ?
+        """, (data.marker, data.item_id))
 
-#     except sqlite3.Error as e:
-#         print(e)
-#     finally:
-#         if conn:
-#             conn.close()  # 關閉資料庫連接
+        conn.commit()
 
+        if cursor.rowcount > 0:
+            return JSONResponse({"message": "success"})
+        else:
+            return JSONResponse({"message": "not exist"})
+    except sqlite3.Error as e:
+        print(e)
+    finally:
+        if conn:
+            conn.close()  # 關閉資料庫連接
 
-# # 新增備註
-# @app.post("/addremark")
-# def addremark(data: Remark):
-#     conn = None
-#     try:
-#         conn = sqlite3.connect('remarks.db')  # 建立資料庫連接
-#         cursor = conn.cursor()  # 建立游標對象
-
-#         # 檢查 'remarks' 表中是否已經存在該 remark
-#         cursor.execute(
-#             "SELECT id FROM 'remarks' WHERE id = ?", (data.id,))
-#         if cursor.fetchone() is None:
-#             # 如果不存在，則插入新的 MenuClass
-#             cursor.execute(
-#                 "INSERT INTO 'remarks' (id, data) VALUES (?, ?)", (data.id, data.data))
-#             conn.commit()  # 提交事務
-
-#             return JSONResponse({"message": "success"})
-#         else:
-#             return JSONResponse({"message": "already exists"})
-#     except sqlite3.Error as e:
-#         print(e)
-#     finally:
-#         if conn:
-#             conn.close()  # 關閉資料庫連接
 
 
 if __name__ == "__main__":
