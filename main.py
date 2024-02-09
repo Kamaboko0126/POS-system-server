@@ -37,10 +37,6 @@ class EditMenu(BaseModel):
     menu_class: str
 
 
-class DelClass(BaseModel):
-    id: str
-
-
 class ChangeClassOrder(BaseModel):
     data: str
 
@@ -68,11 +64,6 @@ class EditItem(BaseModel):
     price: int
 
 
-class DelItem(BaseModel):
-    table_id: str
-    id: str
-
-
 class AddMarker(BaseModel):
     table_id: str
     item_id: str
@@ -83,32 +74,29 @@ class ChangeItemOrder(BaseModel):
     data: str
 
 # 登入
-@app.post("/login")
+def execute_db_query(query, params):
+    conn = sqlite3.connect('admin.db')
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+@app.post("/admin/login")
 def login(data: LoginData):
-    conn = None
-    try:
-        conn = sqlite3.connect('admin.db')  # 建立資料庫連接
-        cursor = conn.cursor()  # 建立游標對象
+    row = execute_db_query(
+        "SELECT Account, Password FROM admin WHERE Account = ?",
+        (data.Account,)
+    )
 
-        # 從 'admin' 表中獲取帳號和密碼
-        cursor.execute(
-            "SELECT Account, Password FROM admin WHERE Account = ?", (data.Account,))
-        row = cursor.fetchone()
+    if row is None or row[1] != data.Password:
+        raise HTTPException(status_code=400, detail="Invalid credentials")
 
-        if row is None or row[1] != data.Password:
-            # 如果帳號不存在，或者密碼不正確，則返回錯誤訊息
-            return JSONResponse({"message": "failed"})
-    except sqlite3.Error as e:
-        print(e)
-    finally:
-        if conn:
-            conn.close()  # 關閉資料庫連接
-
-    return JSONResponse({"message": "success"})
+    return {"message": "success"}
 
 
 # 取得菜單類別
-@app.get("/getmenuclass")
+@app.get("/class/get")
 def getmenuclass():
     conn = None
     try:
@@ -133,7 +121,7 @@ def getmenuclass():
 
 
 # 新增菜單類別
-@app.post("/addmenuclass")
+@app.post("/class/add")
 def addmenuclass(data: MenuClass):
     conn = None
     try:
@@ -176,8 +164,8 @@ def addmenuclass(data: MenuClass):
 
 
 # 刪除菜單類別
-@app.post("/delmenuclass")
-def delmenuclass(data: DelClass):
+@app.delete("/class/del/{id}")
+def delmenuclass(id: str):
     conn = None
     try:
         conn = sqlite3.connect('menu_class.db')  # 建立資料庫連接
@@ -185,17 +173,17 @@ def delmenuclass(data: DelClass):
 
         # 檢查 'menu_class' 表中是否存在該 id
         cursor.execute(
-            "SELECT id FROM 'menu_class' WHERE id = ?", (data.id,))
+            "SELECT id FROM 'menu_class' WHERE id = ?", (id,))
         if cursor.fetchone() is not None:
             # 如果存在，則刪除該 MenuClass
             cursor.execute(
-                "DELETE FROM 'menu_class' WHERE id = ?", (data.id,))
+                "DELETE FROM 'menu_class' WHERE id = ?", (id,))
             conn.commit()  # 提交事務
 
             # 在 'menus.db' 中刪除一個表
             new_db_conn = sqlite3.connect('menus.db')
             new_db_cursor = new_db_conn.cursor()
-            new_db_cursor.execute(f"DROP TABLE IF EXISTS {data.id}")
+            new_db_cursor.execute(f"DROP TABLE IF EXISTS {id}")
             new_db_conn.commit()
             new_db_conn.close()
 
@@ -210,7 +198,7 @@ def delmenuclass(data: DelClass):
 
 
 # 修改菜單類別
-@app.post("/editmenuclass")
+@app.put("/class/edit")
 def editmenuclass(data: EditMenu):
     conn = None
     try:
@@ -236,7 +224,7 @@ def editmenuclass(data: EditMenu):
 
 
 # 變更類別順序
-@app.post("/changeclassorder")
+@app.put("/class/changeorder")
 def changeclassorder(data: ChangeClassOrder):
     data_list = json.loads(str(data.data))
     conn = sqlite3.connect('menu_class.db')
@@ -245,7 +233,7 @@ def changeclassorder(data: ChangeClassOrder):
     for item in data_list:
         cursor.execute(
             "UPDATE menu_class SET order_id = ? WHERE id = ?", (item['order_id'], item['id']))
-        print(f"order_id: {item['order_id']}, ID: {item['id']}")
+        # print(f"order_id: {item['order_id']}, ID: {item['id']}")
 
     conn.commit()
     conn.close()
@@ -254,7 +242,7 @@ def changeclassorder(data: ChangeClassOrder):
 
 
 # 取得菜單品項
-@app.get("/getitems/{id}")
+@app.get("/item/get/{id}")
 def get_items(id: str):
     conn = None
     try:
@@ -265,7 +253,7 @@ def get_items(id: str):
         cursor.execute(f"SELECT id, name, price, marker, order_id FROM '{id}' ORDER BY order_id")
         items = cursor.fetchall()
 
-        print([Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items])
+        # print([Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items])
 
         # 將結果轉換為 JSON 格式
         return [Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items]
@@ -278,7 +266,7 @@ def get_items(id: str):
 
 
 # 新增菜單品項
-@app.post("/additem")
+@app.post("/item/add")
 def add_item(data: AddItem):
     print(data.dict())
     conn = None
@@ -301,8 +289,8 @@ def add_item(data: AddItem):
 
 
 # 刪除菜單品項
-@app.post("/delitem")
-def del_item(data: DelItem):
+@app.delete("/item/del")
+def del_item(table_id: str, id: str):
     conn = None
     try:
         conn = sqlite3.connect('menus.db')  # 建立資料庫連接
@@ -310,7 +298,7 @@ def del_item(data: DelItem):
 
         # 將新的項目插入到指定的表中
         cursor.execute(
-            f"DELETE FROM '{data.table_id}' WHERE id = ?", (data.id,))
+            f"DELETE FROM '{table_id}' WHERE id = ?", (id,))
         conn.commit()  # 提交事務
 
         return JSONResponse({"message": "success"})
@@ -322,7 +310,7 @@ def del_item(data: DelItem):
             conn.close()
 
 #編輯菜單品項
-@app.post("/edititem")
+@app.put("/item/edit")
 def edit_item(data: EditItem):
     conn = None
     try:
@@ -347,7 +335,7 @@ def edit_item(data: EditItem):
             conn.close()  # 關閉資料庫連接
 
 # 修改品項順序
-@app.post("/changeitemorder")
+@app.put("/item/changeorder")
 def changeitemorder(data: ChangeItemOrder):
     data_list = json.loads(str(data.data))
     conn = sqlite3.connect('menus.db')
@@ -365,7 +353,7 @@ def changeitemorder(data: ChangeItemOrder):
     return JSONResponse({"message": "success"})
 
 # 新增備註
-@app.post("/addmarker")
+@app.post("/marker/add")
 def addmarker(data: AddMarker):
     conn=None
     try:
@@ -388,6 +376,7 @@ def addmarker(data: AddMarker):
     finally:
         if conn:
             conn.close()  # 關閉資料庫連接
+
 
 
 
