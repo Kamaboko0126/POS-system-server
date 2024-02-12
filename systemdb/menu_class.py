@@ -4,7 +4,7 @@ from sqlite3 import Error
 def create_menu_class_db():
     conn = None
     try:
-        conn = sqlite3.connect('menu_class.db')  # 建立資料庫連接
+        conn = sqlite3.connect('systemdb/menu_class.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
 
         # 檢查 'menu_class' 表是否已經存在
