@@ -438,6 +438,30 @@ def get_list_order(id:str):
         if conn:
             conn.close()
 
+@app.put("/orderlist/finish/{id}")
+def finish_orderlist(id: str):
+    conn = None
+    try:
+        conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+        
+        # 獲取當前日期
+        current_date = datetime.now().strftime('%Y%m%d')
+        # 建立表名
+        table_id = 'd' + current_date
+        # 執行 SQL 查詢
+        cursor.execute(f"UPDATE {table_id} SET is_finished = 1 WHERE order_id = ?", (id,))
+        conn.commit()
+
+        return JSONResponse({"message": "success"})
+
+    except sqlite3.Error as e:
+        print(e)
+        return JSONResponse({"message": "failed"})
+    finally:
+        if conn:
+            conn.close()
+
 #新增訂單
 @app.post("/order/add")
 async def add_order(data: AddOrder):
