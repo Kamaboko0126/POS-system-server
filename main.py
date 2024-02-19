@@ -62,6 +62,7 @@ class AddItem(BaseModel):
     marker: str
     order_id: int
 
+
 class EditItem(BaseModel):
     table_id: str
     id: str
@@ -73,6 +74,7 @@ class AddMarker(BaseModel):
     table_id: str
     item_id: str
     marker: str
+
 
 class ChangeItemOrder(BaseModel):
     table_id: str
@@ -87,12 +89,15 @@ class ChangeItemOrder(BaseModel):
 #     quantity:int
 
 class AddOrder(BaseModel):
-    is_discount:bool
-    lists:str
-    order_id:str
-    ordering_method:str
-    payment:str
-    phone:str
+    is_discount: bool
+    lists: str
+    order_id: str
+    ordering_method: str
+    payment: str
+    phone: str
+    pick_up_time: str
+    date: str
+
 
 class EventBus:
     def __init__(self):
@@ -106,6 +111,7 @@ class EventBus:
         queue = asyncio.Queue()
         self._subscribers.add(queue)
         return queue
+
 
 event_bus = EventBus()
 
@@ -286,7 +292,8 @@ def get_items(id: str):
         cursor = conn.cursor()  # 建立游標對象
 
         # 查詢對應的表中的所有項目，並按照 order_id 進行排序
-        cursor.execute(f"SELECT id, name, price, marker, order_id FROM '{id}' ORDER BY order_id")
+        cursor.execute(
+            f"SELECT id, name, price, marker, order_id FROM '{id}' ORDER BY order_id")
         items = cursor.fetchall()
 
         # print([Item(id=item[0], name=item[1], price=item[2], marker=item[3], order_id=item[4]) for item in items])
@@ -345,7 +352,9 @@ def del_item(table_id: str, id: str):
         if conn:
             conn.close()
 
-#編輯菜單品項
+# 編輯菜單品項
+
+
 @app.put("/item/edit")
 def edit_item(data: EditItem):
     conn = None
@@ -371,6 +380,8 @@ def edit_item(data: EditItem):
             conn.close()  # 關閉資料庫連接
 
 # 修改品項順序
+
+
 @app.put("/item/changeorder")
 def changeitemorder(data: ChangeItemOrder):
     data_list = json.loads(str(data.data))
@@ -382,16 +393,17 @@ def changeitemorder(data: ChangeItemOrder):
             f'''UPDATE {data.table_id} SET order_id = ? WHERE id = ?''', (item['order_id'], item['id']))
         print(f"order_id: {item['order_id']}, ID: {item['id']}")
 
-
     conn.commit()
     conn.close()
 
     return JSONResponse({"message": "success"})
 
 # 新增備註
+
+
 @app.post("/marker/add")
 def addmarker(data: AddMarker):
-    conn=None
+    conn = None
     try:
         conn = sqlite3.connect('systemdb/menus.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
@@ -415,7 +427,7 @@ def addmarker(data: AddMarker):
 
 
 @app.get("/orderlist/get/{id}")
-def get_list_order(id:str):
+def get_list_order(id: str):
     conn = None
     try:
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
@@ -438,19 +450,21 @@ def get_list_order(id:str):
         if conn:
             conn.close()
 
+
 @app.put("/orderlist/finish/{id}")
 def finish_orderlist(id: str):
     conn = None
     try:
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
-        
+
         # 獲取當前日期
         current_date = datetime.now().strftime('%Y%m%d')
         # 建立表名
         table_id = 'd' + current_date
         # 執行 SQL 查詢
-        cursor.execute(f"UPDATE {table_id} SET is_finished = 1 WHERE order_id = ?", (id,))
+        cursor.execute(
+            f"UPDATE {table_id} SET is_finished = 1 WHERE order_id = ?", (id,))
         conn.commit()
 
         return JSONResponse({"message": "success"})
@@ -462,7 +476,9 @@ def finish_orderlist(id: str):
         if conn:
             conn.close()
 
-#新增訂單
+# 新增訂單
+
+
 @app.post("/order/add")
 async def add_order(data: AddOrder):
     conn = None
@@ -470,15 +486,16 @@ async def add_order(data: AddOrder):
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
 
-        # 獲取當前日期
-        current_date = datetime.now().strftime('%Y%m%d')
-        # 建立表名
-        table_id = 'd' + current_date
+        # 獲取當前日期和時間
+        current_datetime = datetime.now()
+
+        # 格式化日期和時間
+        formatted_datetime = current_datetime.strftime('%m/%d %H:%M')
 
         # 插入數據
         cursor.execute(
-            f"INSERT INTO '{table_id}' (is_discount, lists, order_id, ordering_method, payment, phone) VALUES (?, ?, ?, ? ,?, ?)"
-                , (data.is_discount, data.lists, data.order_id, data.ordering_method, data.payment, data.phone))
+            f'''INSERT INTO "{data.date}" (is_discount, lists, order_id, ordering_method, payment, phone, order_time, pick_up_time) VALUES (?, ?, ?, ? ,?, ?, ?, ?)''',
+            (data.is_discount, data.lists, data.order_id, data.ordering_method, data.payment, data.phone, formatted_datetime, data.pick_up_time))
 
         conn.commit()
         conn.close()

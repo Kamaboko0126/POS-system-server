@@ -21,6 +21,8 @@ def create_orders_db():
                         is_discount BOOLEAN,
                         lists TEXT,
                         order_id TEXT,
+                        order_time TEXT,
+                        pick_up_time TEXT,
                         ordering_method TEXT,
                         payment TEXT,
                         phone TEXT,
