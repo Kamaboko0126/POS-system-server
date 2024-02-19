@@ -440,7 +440,7 @@ def get_list_order(id: str):
         datas = cursor.fetchall()
 
         response = JSONResponse(
-            [{"index_id": data[0], "is_discount": bool(data[1]), "lists": data[2], "order_id": data[3], "ordering_method": data[4], "payment": data[5], "phone": data[6], "is_finished": bool(data[7])} for data in datas])
+            [{"index_id": data[0], "is_discount": bool(data[1]), "lists": data[2], "order_id": data[3], "order_time": data[4], "pick_up_time": data[5], "ordering_method": data[6], "payment": data[7], "phone": data[8], "is_finished": bool(data[9])} for data in datas])
         return response
 
     except sqlite3.Error as e:
@@ -476,9 +476,8 @@ def finish_orderlist(id: str):
         if conn:
             conn.close()
 
+
 # 新增訂單
-
-
 @app.post("/order/add")
 async def add_order(data: AddOrder):
     conn = None
@@ -494,8 +493,8 @@ async def add_order(data: AddOrder):
 
         # 插入數據
         cursor.execute(
-            f'''INSERT INTO "{data.date}" (is_discount, lists, order_id, ordering_method, payment, phone, order_time, pick_up_time) VALUES (?, ?, ?, ? ,?, ?, ?, ?)''',
-            (data.is_discount, data.lists, data.order_id, data.ordering_method, data.payment, data.phone, formatted_datetime, data.pick_up_time))
+            f'''INSERT INTO "{data.date}" (is_discount, lists, order_id, ordering_method, payment, phone, order_time, pick_up_time, is_finished) VALUES (?, ?, ?, ? ,?, ?, ?, ?, ?)''',
+            (data.is_discount, data.lists, data.order_id, data.ordering_method, data.payment, data.phone, formatted_datetime, data.pick_up_time, False))
 
         conn.commit()
         conn.close()

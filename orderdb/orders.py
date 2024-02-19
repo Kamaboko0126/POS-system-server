@@ -26,7 +26,7 @@ def create_orders_db():
                         ordering_method TEXT,
                         payment TEXT,
                         phone TEXT,
-                        is_finished BOOLEAN DEFAULT FALSE
+                        is_finished BOOLEAN
                         )
                     ''')
 
