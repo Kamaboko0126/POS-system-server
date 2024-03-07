@@ -522,5 +522,31 @@ async def websocket_endpoint(websocket: WebSocket):
         event_bus._subscribers.remove(queue)
 
 
+@app.get("/orderlist/history/{date}")
+def get_history_order(date:str):
+    conn = None
+    try:
+        conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+
+        # 查詢對應的表中的所有項目，並按照 index 進行降序排序
+        cursor.execute(f"SELECT * FROM {date} ORDER BY index_id DESC")
+        rows = cursor.fetchall()
+
+        # 將查詢結果轉換為字典格式
+        result = [dict(zip([column[0] for column in cursor.description], row)) for row in rows]
+        return result
+
+
+    except sqlite3.Error as e:
+        print(e)
+        raise HTTPException(status_code=400, detail="Error in fetching items")
+    finally:
+        if conn:
+            conn.close()  # 關閉資料庫連接
+
+
+
+
 if __name__ == "__main__":
     uvicorn.run(app, port=10000)
