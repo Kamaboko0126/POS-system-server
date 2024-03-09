@@ -332,9 +332,10 @@ def add_item(data: AddItem):
 
 
 # 刪除菜單品項
-@app.delete("/item/del")
+@app.delete("/item/del/{table_id}/{id}")
 def del_item(table_id: str, id: str):
     conn = None
+    print(table_id, id)
     try:
         conn = sqlite3.connect('systemdb/menus.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
@@ -352,9 +353,9 @@ def del_item(table_id: str, id: str):
         if conn:
             conn.close()
 
+
+
 # 編輯菜單品項
-
-
 @app.put("/item/edit")
 def edit_item(data: EditItem):
     conn = None
@@ -452,7 +453,7 @@ def get_list_order(id: str):
 
 
 @app.put("/orderlist/finish/{id}")
-def finish_orderlist(id: str):
+async def finish_orderlist(id: str):
     conn = None
     try:
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
@@ -467,7 +468,7 @@ def finish_orderlist(id: str):
             f"UPDATE {table_id} SET is_finished = 1 WHERE order_id = ?", (id,))
         conn.commit()
 
-        return JSONResponse({"message": "success"})
+        # return JSONResponse({"message": "success"})
 
     except sqlite3.Error as e:
         print(e)
@@ -475,6 +476,9 @@ def finish_orderlist(id: str):
     finally:
         if conn:
             conn.close()
+
+    asyncio.create_task(event_bus.publish("Order Status Changed"))
+    return JSONResponse({"message": "success"})
 
 
 # 新增訂單
@@ -506,7 +510,7 @@ async def add_order(data: AddOrder):
             conn.close()  # 關閉資料庫連接
 
     # print(data.dict())
-    asyncio.create_task(event_bus.publish("Order added"))
+    asyncio.create_task(event_bus.publish("Order Status Changed"))
     return JSONResponse({"message": "success"})
 
 
@@ -523,7 +527,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 @app.get("/orderlist/history/{date}")
-def get_history_order(date:str):
+def get_history_order(date: str):
     conn = None
     try:
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
@@ -534,9 +538,10 @@ def get_history_order(date:str):
         rows = cursor.fetchall()
 
         # 將查詢結果轉換為字典格式
-        result = [dict(zip([column[0] for column in cursor.description], row)) for row in rows]
+        result = [dict(zip([column[0] for column in cursor.description], row))
+                  for row in rows]
+        # print(result)
         return result
-
 
     except sqlite3.Error as e:
         print(e)
@@ -546,6 +551,33 @@ def get_history_order(date:str):
             conn.close()  # 關閉資料庫連接
 
 
+@app.put("/orderlist/unfinish/{id}")
+async def unfinish_orderlist(id: str):
+    conn = None
+    try:
+        conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+
+        # 獲取當前日期
+        current_date = datetime.now().strftime('%Y%m%d')
+        # 建立表名
+        table_id = 'd' + current_date
+        # 執行 SQL 查詢
+        cursor.execute(
+            f"UPDATE {table_id} SET is_finished = 0 WHERE order_id = ?", (id,))
+        conn.commit()
+
+        # return JSONResponse({"message": "success"})
+
+    except sqlite3.Error as e:
+        print(e)
+        return JSONResponse({"message": "failed"})
+    finally:
+        if conn:
+            conn.close()
+
+    asyncio.create_task(event_bus.publish("Order Status Changed"))
+    return JSONResponse({"message": "success"})
 
 
 if __name__ == "__main__":
