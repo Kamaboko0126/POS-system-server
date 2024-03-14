@@ -98,6 +98,15 @@ class AddOrder(BaseModel):
     pick_up_time: str
     date: str
 
+class EditOrder(BaseModel):
+    history_order_id: str
+    is_discount: bool
+    lists: str
+    ordering_method: str
+    payment: str
+    phone: str
+    date: str
+    pick_up_time: str
 
 class EventBus:
     def __init__(self):
@@ -111,7 +120,6 @@ class EventBus:
         queue = asyncio.Queue()
         self._subscribers.add(queue)
         return queue
-
 
 event_bus = EventBus()
 
@@ -513,6 +521,34 @@ async def add_order(data: AddOrder):
     asyncio.create_task(event_bus.publish("Order Status Changed"))
     return JSONResponse({"message": "success"})
 
+@app.put("/order/edit")
+async def edit_order(data: EditOrder): 
+    conn = None
+    try:
+        conn = sqlite3.connect('orderdb/orders.db')
+        cursor = conn.cursor()
+
+        cursor.execute(
+        f"""
+        UPDATE {data.date} 
+        SET is_discount = ?, lists = ?, ordering_method = ?, payment = ?, phone = ?, pick_up_time = ? 
+        WHERE order_id = ?
+        """, 
+        (data.is_discount, data.lists, data.ordering_method, data.payment, data.phone, data.pick_up_time, data.history_order_id)
+        )
+
+        conn.commit()
+        conn.close()
+
+    except sqlite3.Error as e:
+        print(e)
+    finally:
+        if conn:
+            conn.close()  # 關閉資料庫連接
+
+    # print(data.dict())
+    asyncio.create_task(event_bus.publish("Order Status Changed"))
+    return JSONResponse({"message": "success"})
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
