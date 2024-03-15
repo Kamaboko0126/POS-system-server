@@ -189,7 +189,7 @@ def addmenuclass(data: MenuClass):
             print(data.menu_class, data.id)
 
             # 在 'menus.db' 中創建一個新的表
-            new_db_conn = sqlite3.connect('menus.db')
+            new_db_conn = sqlite3.connect('systemdb/menus.db')
             new_db_cursor = new_db_conn.cursor()
             new_db_cursor.execute(f'''
                 CREATE TABLE {data.id} (
