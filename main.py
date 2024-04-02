@@ -1,12 +1,13 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket
+from starlette.websockets import WebSocketState
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 # from systemdb.admin import create_admin_db
 from systemdb.menu_class import create_menu_class_db
-from orderdb.orders import create_orders_db
+# from orderdb.orders import create_orders_db
 import sqlite3
 import json
 from datetime import datetime
@@ -14,7 +15,7 @@ import asyncio
 
 # create_admin_db()
 create_menu_class_db()
-create_orders_db()
+# create_orders_db()
 
 app = FastAPI()
 app.add_middleware(
@@ -489,10 +490,11 @@ async def finish_orderlist(id: str):
     return JSONResponse({"message": "success"})
 
 
-# 新增訂單
+#新增訂單
 @app.post("/order/add")
 async def add_order(data: AddOrder):
     conn = None
+    # print(data.dict())
     try:
         conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
         cursor = conn.cursor()  # 建立游標對象
@@ -502,6 +504,26 @@ async def add_order(data: AddOrder):
 
         # 格式化日期和時間
         formatted_datetime = current_datetime.strftime('%m/%d %H:%M')
+
+
+        # 檢查表是否已經存在
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{data.date}'")
+        if cursor.fetchone() is None:
+            # 表不存在，創建表
+            cursor.execute(f'''
+                           CREATE TABLE {data.date}(
+                            index_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            is_discount BOOLEAN,
+                            lists TEXT,
+                            order_id TEXT,
+                            order_time TEXT,
+                            pick_up_time TEXT,
+                            ordering_method TEXT,
+                            payment TEXT,
+                            phone TEXT,
+                            is_finished BOOLEAN
+                            )
+                        ''')
 
         # 插入數據
         cursor.execute(
@@ -550,12 +572,44 @@ async def edit_order(data: EditOrder):
     asyncio.create_task(event_bus.publish("Order Status Changed"))
     return JSONResponse({"message": "success"})
 
+
+# 刪除訂單
+@app.delete("/order/del/{id}/{date}")
+async def delmenuclass(id: str, date: str):
+    conn = None
+    print(id, date)
+    try:
+        conn = sqlite3.connect('orderdb/orders.db')  # 建立資料庫連接
+        cursor = conn.cursor()  # 建立游標對象
+
+        # 檢查{date}表中是否存在該 order_id
+        cursor.execute(
+            f"SELECT * FROM {date} WHERE order_id = ?", (id,))
+        if cursor.fetchone() is not None:
+            # 如果存在，則刪除該 MenuClass
+            cursor.execute(
+                f"DELETE FROM {date} WHERE order_id = ?", (id,))
+           
+            conn.commit()  # 提交事務
+
+    except sqlite3.Error as e:
+        print(e)
+    finally:
+        if conn:
+            conn.close()  # 關閉資料庫連接
+
+    asyncio.create_task(event_bus.publish("Order Status Changed"))
+    return JSONResponse({"message": "success"})
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     queue = event_bus.subscribe()
     try:
         while True:
+            if not websocket.client_state == WebSocketState.CONNECTED:
+                break
             message = await queue.get()
             await websocket.send_text(message)
     finally:

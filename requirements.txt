@@ -1,5 +1,5 @@
 uvicorn
 fastapi
 pydantic
-sqlite3
-json
+pysqlite3
+uvicorn[standard]
