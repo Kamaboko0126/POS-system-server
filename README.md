@@ -1,6 +1,7 @@
-##安裝
+## 美食棧POS系統伺服端(FastAPI & SQLite)
 
-要安裝所需的套件，請在您的終端機中執行以下命令：
+# install
+請在終端機執行以下命令：
 
 ```bash
 pip install -r requirements.txt
